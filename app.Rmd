@@ -1,0 +1,112 @@
+---
+title: "CRAN Downloads"
+output: 
+  flexdashboard::flex_dashboard:
+    theme:
+      version: 4
+      bg: "#426e86"
+      fg: "#f8f1e5" 
+      primary: "#426e86"
+      navbar-bg: "#f8f1e5"
+      base_font: 
+        google: Prompt
+      heading_font:
+        google: Sen
+    orientation: rows
+    vertical_layout: fill
+    source_code: "https://github.com/Reckziegel/mydownloads"
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(cranlogs)
+library(tidyverse)
+
+```
+
+
+```{r}
+x <- cranlogs::cran_downloads(c("ffp", "uncorbets"), from = "2021-07-12")
+
+last_day  <- tail(x, 1)["count"]
+last_week <- x |> 
+    dplyr::slice_tail(n = 5) |> 
+    summarise(count = sum(count))
+last_month <- x |> 
+    dplyr::slice_tail(n = 30) |> 
+    summarise(count = sum(count))
+inception <- x |> 
+    summarise(count = sum(count))
+```
+
+
+Row {data-height=150}
+--------------------------------------------------------------------------------
+
+### Downloads in `r Sys.Date() - 1`
+
+```{r}
+flexdashboard::valueBox(
+    value   = last_day, 
+    icon    = "fa-clock"
+)
+```
+
+### Downloads in the last 5 days
+
+```{r}
+flexdashboard::valueBox(
+    value = last_week,
+    icon  = "fa-calendar-alt"
+)
+```
+
+### Downloads in the last month
+
+```{r}
+flexdashboard::valueBox(
+    value = last_month, 
+    icon  = "fa-calendar-minus"
+)
+```
+
+### Downloads since CRAN release
+
+```{r}
+flexdashboard::valueBox(
+    value = inception, 
+    icon  = "fa-rocket"
+)
+```
+
+Row {data-height=850}
+-----------------------------------------------------------------------
+
+### Downloads
+
+```{r}
+output$plot_downloads <- plotly::renderPlotly({
+    
+    gg_plot <- x |> 
+        tibble::as_tibble() |> 
+        dplyr::group_by(package) |> 
+        dplyr::mutate(total_downloads = cumsum(count)) |> 
+        dplyr::ungroup() |> 
+        dplyr::mutate(label_text = stringr::str_glue("Date: {date}
+                                                     Package: {package}
+                                                     Total Downloads: {total_downloads}")) |> 
+        ggplot2::ggplot(ggplot2::aes(x = date, y = total_downloads, color = package)) + 
+        ggplot2::geom_point(ggplot2::aes(text = label_text), size = 0.01) + 
+        ggplot2::geom_line() + 
+        ggplot2::scale_color_manual(values = c("#426e86", "#f9ba32")) + 
+        ggplot2::labs(x = NULL, y = NULL)
+    plotly::ggplotly(gg_plot, tooltip = "label_text")
+    
+    
+})
+plotly::plotlyOutput(outputId = "plot_downloads") 
+```
+
+
